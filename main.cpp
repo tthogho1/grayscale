@@ -7,22 +7,22 @@
 #include <opencv2/opencv.hpp>
 
 struct BaseImage {
+    virtual ~BaseImage() = default;
     virtual std::string convertToString() const = 0;
 };
 
 struct GrayScaleImage final: public BaseImage {
-    const std::vector<int8_t> data;
+    const std::vector<uint8_t> data;
     const int width;
     const int height;
 
-    GrayScaleImage(const std::vector<int8_t>& data, int width, int height) noexcept
+    GrayScaleImage(const std::vector<uint8_t>& data, int width, int height) noexcept
         : data(data), width(width), height(height)
     {
     }
 
     void showWithOpenCV() const {
-        std::vector<uint8_t> udata(data.begin(), data.end());
-        cv::Mat img(height, width, CV_8UC1, udata.data());
+        cv::Mat img(height, width, CV_8UC1, const_cast<uint8_t*>(data.data()));
         cv::imshow("Gray Image", img);
         cv::waitKey(0);
     }
@@ -31,7 +31,7 @@ struct GrayScaleImage final: public BaseImage {
     {
         std::ostringstream os;
         os << +(*data.begin());
-        for_each(data.begin() + 1, data.end(), [&os](int8_t p) {
+        for_each(data.begin() + 1, data.end(), [&os](uint8_t p) {
             os << ", " << +p;
         });
         return "[" + os.str() + "]";
@@ -40,21 +40,26 @@ struct GrayScaleImage final: public BaseImage {
 };
 
 class ImageConverter final {
+private:
+    static constexpr int BMP_WIDTH_OFFSET = 18;
+    static constexpr int BMP_HEIGHT_OFFSET = 22;
+    static constexpr int BMP_DATA_OFFSET = 54;
+
 public:
-    ImageConverter& readImage(const std::string& image) noexcept {
+    ImageConverter& readImage(const std::string& image) {
         std::cout << "read image:" << image << std::endl;
         FILE* fp = fopen(image.c_str(), "rb");
         if (!fp) {
             std::cerr << "ファイルを開けません: " << image << std::endl;
             std::exit(1);
         }
-        fseek(fp, 18, SEEK_SET);
+        fseek(fp, BMP_WIDTH_OFFSET, SEEK_SET);
         int w = 0, h = 0;
         fread(&w, 4, 1, fp);
         fread(&h, 4, 1, fp);
         width_ = w;
         height_ = h;
-        fseek(fp, 54, SEEK_SET);
+        fseek(fp, BMP_DATA_OFFSET, SEEK_SET);
         imageData_.resize(width_ * height_);
         int rowSize = ((width_ * 3 + 3) / 4) * 4;
         std::vector<unsigned char> rowBuf(rowSize);
@@ -85,12 +90,12 @@ public:
         constexpr double B_WEIGHT = 0.114;
         
         std::cout << "convert image to gray scale" << std::endl;
-        std::vector<int8_t> grayData;
+        std::vector<uint8_t> grayData;
         grayData.reserve(imageData_.size());
         
         for (const auto& rgb : imageData_) {
             int gray = static_cast<int>(R_WEIGHT * rgb[0] + G_WEIGHT * rgb[1] + B_WEIGHT * rgb[2]);
-            grayData.push_back(static_cast<int8_t>(gray));
+            grayData.push_back(static_cast<uint8_t>(gray));
         }
         
         return GrayScaleImage(grayData, width_, height_);
@@ -105,14 +110,12 @@ private:
 int main(){
     std::string imageFile = "./hoge.bmp";
 
-    ImageConverter converter;
-    GrayScaleImage grayScaleImage = converter
+    GrayScaleImage grayScaleImage = ImageConverter()
         .readImage(imageFile)
         .peekPrintImageData()
         .convertToGrayScale();
 
     //std::cout << "gray scale vector: " << grayScaleImage.convertToString() << std::endl;
-    
     grayScaleImage.showWithOpenCV();
 
     return 0;
