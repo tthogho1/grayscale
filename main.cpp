@@ -80,6 +80,19 @@ public:
     ImageConverter& peekPrintImageData() noexcept
     {
         std::cout << "print image data" << std::endl;
+        std::cout << "  Size: " << width_ << "x" << height_ << " pixels" << std::endl;
+        std::cout << "  Total pixels: " << imageData_.size() << std::endl;
+        
+        // 最初の3ピクセルのRGB値を表示
+        int sampleCount = std::min(3, static_cast<int>(imageData_.size()));
+        std::cout << "  First " << sampleCount << " pixels (RGB): ";
+        for (int i = 0; i < sampleCount; ++i) {
+            const auto& rgb = imageData_[i];
+            std::cout << "(" << +rgb[0] << "," << +rgb[1] << "," << +rgb[2] << ")";
+            if (i < sampleCount - 1) std::cout << " ";
+        }
+        std::cout << std::endl;
+        
         return *this;
     }
 
